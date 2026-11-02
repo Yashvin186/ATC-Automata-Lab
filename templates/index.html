@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATC Automata Lab — Interactive NFA-to-DFA Simulator</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <!-- Local vendored Cytoscape.js for 100% offline reliability -->
+  <script src="/static/cytoscape.min.js"></script>
+</head>
+<body>
+  <!-- Header Navigation -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="header-badge">ATC Automata Lab</div>
+      <div class="header-titles">
+        <h1>Interactive NFA-to-DFA Simulator</h1>
+        <span class="subtext">Automata Theory & Computability — Explore. Convert. Simulate. Understand.</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="btn-open-theory" class="btn btn-theory" type="button">
+        📖 Theory & Viva Guide
+      </button>
+    </div>
+  </header>
+
+  <!-- Global Alert Notification -->
+  <div id="global-alert" class="global-alert hidden"></div>
+
+  <!-- Main 3-Column Dashboard -->
+  <main class="dashboard-grid">
+
+    <!-- ============================================== -->
+    <!-- PANEL 1: BUILDER PANEL                         -->
+    <!-- ============================================== -->
+    <section class="panel panel-builder" id="panel-builder">
+      <div class="panel-header">
+        <h2>1. Automaton Builder</h2>
+        <div class="mode-toggle-group">
+          <button id="btn-mode-preset" class="btn btn-toggle active" type="button">Presets</button>
+          <button id="btn-mode-manual" class="btn btn-toggle" type="button">Manual Editor</button>
+        </div>
+      </div>
+
+      <!-- Section: Presets -->
+      <div id="section-presets" class="builder-section">
+        <label for="preset-select" class="field-label">Select Standard Language Preset:</label>
+        <div class="input-row">
+          <select id="preset-select" class="form-select">
+            <option value="ENDS_WITH_01">Ends with '01'</option>
+            <option value="CONTAINS_110">Contains substring '110'</option>
+            <option value="EVEN_NUMBER_OF_0S">Even number of '0's</option>
+            <option value="EPSILON_DEMO">Epsilon Transitions Demo (0*1*)</option>
+          </select>
+          <button id="btn-load-preset" class="btn btn-primary" type="button">Load Preset</button>
+        </div>
+
+        <div id="preset-details" class="preset-info-card">
+          <div class="preset-math-def" id="preset-math-def">L = { w ∈ {0, 1}* | w ends with 01 }</div>
+          <p id="preset-desc" class="preset-desc"></p>
+          <div class="sample-strings-wrapper">
+            <span class="sample-label text-success">Sample Accepted:</span>
+            <div id="preset-samples-acc" class="sample-chips"></div>
+          </div>
+          <div class="sample-strings-wrapper">
+            <span class="sample-label text-danger">Sample Rejected:</span>
+            <div id="preset-samples-rej" class="sample-chips"></div>
+          </div>
+        </div>
+
+        <div class="nl-matcher-box">
+          <label for="nl-phrase-input" class="field-label">Natural Language Description Lookup:</label>
+          <div class="input-row">
+            <input type="text" id="nl-phrase-input" class="form-input" placeholder="e.g. strings ending with 01">
+            <button id="btn-nl-match" class="btn btn-secondary" type="button">Match & Load</button>
+          </div>
+          <div class="quick-phrase-chips">
+            <span class="phrase-tag" data-phrase="ends with 01">ends with 01</span>
+            <span class="phrase-tag" data-phrase="contains 110">contains 110</span>
+            <span class="phrase-tag" data-phrase="even number of 0s">even 0s</span>
+            <span class="phrase-tag" data-phrase="0* followed by 1*">epsilon demo</span>
+          </div>
+          <p id="nl-match-status" class="status-msg"></p>
+        </div>
+      </div>
+
+      <!-- Section: Manual Editor -->
+      <div id="section-manual" class="builder-section hidden">
+        <div class="form-group">
+          <label for="input-alphabet" class="field-label">Input Alphabet (comma-separated, single chars):</label>
+          <div class="input-row">
+            <input type="text" id="input-alphabet" class="form-input" value="0, 1" placeholder="0, 1">
+            <button id="btn-update-alphabet" class="btn btn-secondary" type="button">Apply Alphabet</button>
+          </div>
+          <span class="hint-text">Note: 'ε' is reserved for epsilon transitions and cannot be in alphabet.</span>
+        </div>
+
+        <!-- States Manager -->
+        <div class="form-group">
+          <label class="field-label">States Configuration (Add / Rename / Start / Accept):</label>
+          <div class="input-row">
+            <input type="text" id="input-new-state" class="form-input" placeholder="e.g. q3">
+            <button id="btn-add-state" class="btn btn-secondary" type="button">+ Add State</button>
+          </div>
+          <div class="states-manager-card">
+            <table class="data-table" id="states-meta-table">
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Start</th>
+                  <th>Accept</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="states-meta-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Interactive Transition Matrix -->
+        <div class="form-group">
+          <div class="table-editor-header">
+            <label class="field-label">Transition Table δ(q, σ):</label>
+            <span class="hint-text">Empty cell = ∅ (no transition)</span>
+          </div>
+          <div class="table-scroll-wrapper">
+            <table class="data-table editor-table" id="nfa-editor-table">
+              <thead id="nfa-editor-thead"></thead>
+              <tbody id="nfa-editor-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Builder Action Buttons -->
+      <div class="builder-actions">
+        <button id="btn-validate-nfa" class="btn btn-secondary" type="button">Validate NFA</button>
+        <button id="btn-convert-dfa" class="btn btn-accent" type="button">Convert to DFA (Subset Construction)</button>
+      </div>
+
+      <div id="validation-feedback" class="feedback-box hidden"></div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- PANEL 2: VISUALIZATION PANEL                   -->
+    <!-- ============================================== -->
+    <section class="panel panel-visualizer" id="panel-visualizer">
+      <div class="panel-header">
+        <h2>2. Automata Visualizations & Conversion</h2>
+        <span id="node-inspector-pill" class="inspector-pill">Click a state node to inspect</span>
+      </div>
+
+      <!-- NFA Graph Card -->
+      <div class="graph-card">
+        <div class="graph-card-header">
+          <div class="title-with-badge">
+            <h3>NFA State Graph</h3>
+            <span id="nfa-stats-badge" class="stats-badge">0 states</span>
+          </div>
+          <div class="graph-toolbar">
+            <button class="btn btn-xs btn-outline" id="btn-zoom-in-nfa" title="Zoom in">+</button>
+            <button class="btn btn-xs btn-outline" id="btn-zoom-out-nfa" title="Zoom out">−</button>
+            <button class="btn btn-xs btn-outline" id="btn-fit-nfa" title="Fit to container">Fit</button>
+            <button class="btn btn-xs btn-outline" id="btn-layout-nfa" title="Redraw layout">Redraw</button>
+          </div>
+        </div>
+        <div id="cy-nfa" class="cy-container"></div>
+      </div>
+
+      <!-- Step-by-Step Conversion Stepper Card -->
+      <div id="conversion-stepper-card" class="stepper-card">
+        <div class="stepper-header">
+          <div class="title-with-badge">
+            <h3>Subset Construction Stepper</h3>
+            <span id="conv-step-counter" class="stats-badge">Step 0 / 0</span>
+          </div>
+          <div class="stepper-controls">
+            <button id="btn-conv-reset" class="btn btn-xs btn-secondary" title="Reset conversion to start">⏮ Reset</button>
+            <button id="btn-conv-step" class="btn btn-xs btn-primary" title="Advance one subset step">⏯ Step Next</button>
+            <button id="btn-conv-play" class="btn btn-xs btn-accent" title="Play automatic conversion">▶ Play</button>
+            <button id="btn-conv-pause" class="btn btn-xs btn-secondary hidden" title="Pause conversion">⏸ Pause</button>
+            <button id="btn-conv-complete" class="btn btn-xs btn-secondary" title="Jump to final complete DFA">⏭ Complete</button>
+          </div>
+        </div>
+        <div id="conv-step-details" class="step-details-card">
+          <div class="step-metric-row">
+            <div class="metric-item">
+              <span class="m-label">Current Subset:</span>
+              <span id="conv-curr-subset" class="m-value">-</span>
+            </div>
+            <div class="metric-item">
+              <span class="m-label">Symbol:</span>
+              <span id="conv-symbol" class="m-value">-</span>
+            </div>
+            <div class="metric-item">
+              <span class="m-label">Raw Moves:</span>
+              <span id="conv-raw-move" class="m-value">-</span>
+            </div>
+            <div class="metric-item">
+              <span class="m-label">ε-Closure:</span>
+              <span id="conv-closure" class="m-value">-</span>
+            </div>
+            <div class="metric-item">
+              <span class="m-label">Status:</span>
+              <span id="conv-discovery-badge" class="badge-status">-</span>
+            </div>
+          </div>
+          <p id="conv-explanation-text" class="step-explanation">
+            Click "Convert to DFA" or "Step Next" to trace the mathematical subset construction step-by-step.
+          </p>
+        </div>
+      </div>
+
+      <!-- DFA Graph Card -->
+      <div class="graph-card">
+        <div class="graph-card-header">
+          <div class="title-with-badge">
+            <h3>Converted Complete DFA State Graph</h3>
+            <span id="dfa-stats-badge" class="stats-badge">0 states</span>
+          </div>
+          <div class="graph-toolbar">
+            <button class="btn btn-xs btn-outline" id="btn-zoom-in-dfa" title="Zoom in">+</button>
+            <button class="btn btn-xs btn-outline" id="btn-zoom-out-dfa" title="Zoom out">−</button>
+            <button class="btn btn-xs btn-outline" id="btn-fit-dfa" title="Fit to container">Fit</button>
+            <button class="btn btn-xs btn-outline" id="btn-layout-dfa" title="Redraw layout">Redraw</button>
+          </div>
+        </div>
+        <div id="cy-dfa" class="cy-container"></div>
+      </div>
+
+      <!-- Transition Tables Tabs -->
+      <div class="tables-tab-card">
+        <div class="tabs-header">
+          <button id="tab-btn-nfa" class="tab-btn active" type="button">NFA Transition Table δ_NFA</button>
+          <button id="tab-btn-dfa" class="tab-btn" type="button">DFA Transition Table δ_DFA</button>
+        </div>
+        <div id="tab-content-nfa" class="tab-content active">
+          <div class="table-scroll-wrapper">
+            <table class="data-table" id="view-nfa-table">
+              <thead id="view-nfa-thead"></thead>
+              <tbody id="view-nfa-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="tab-content-dfa" class="tab-content">
+          <div class="table-scroll-wrapper">
+            <table class="data-table" id="view-dfa-table">
+              <thead id="view-dfa-thead"></thead>
+              <tbody id="view-dfa-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graph Legend -->
+      <div class="legend-card">
+        <h4>Visual Graph Legend</h4>
+        <div class="legend-grid">
+          <div class="legend-item">
+            <span class="legend-symbol node-start"></span>
+            <span class="legend-text"><strong>Start State:</strong> Incoming arrow (q₀ / D₀)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol node-accept"></span>
+            <span class="legend-text"><strong>Accepting State:</strong> Double concentric border</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol node-normal"></span>
+            <span class="legend-text"><strong>Ordinary State:</strong> Single solid border</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol node-trap"></span>
+            <span class="legend-text"><strong>Empty/Trap State (∅):</strong> Red dashed border</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol node-active"></span>
+            <span class="legend-text"><strong>Active State:</strong> Vibrant amber highlight glow</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-symbol edge-active"></span>
+            <span class="legend-text"><strong>Active Transition:</strong> Highlighted orange edge</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- PANEL 3: SIMULATION PANEL                      -->
+    <!-- ============================================== -->
+    <section class="panel panel-simulation" id="panel-simulation">
+      <div class="panel-header">
+        <h2>3. Synchronized String Simulation</h2>
+      </div>
+
+      <!-- String Input & Quick Chips -->
+      <div class="sim-input-card">
+        <label for="sim-input-string" class="field-label">Input String (w ∈ Σ*):</label>
+        <div class="input-row">
+          <input type="text" id="sim-input-string" class="form-input sim-string-input" placeholder="e.g. 0101">
+          <button id="btn-sim-run" class="btn btn-primary" type="button">Run All</button>
+        </div>
+        <div class="sample-chips-row">
+          <span class="chips-label">Quick Test:</span>
+          <div id="sim-quick-chips" class="sample-chips"></div>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="sim-controls-card">
+        <div class="playback-btn-group">
+          <button id="btn-sim-reset" class="btn btn-secondary" title="Reset simulation">⏮ Reset</button>
+          <button id="btn-sim-step" class="btn btn-primary" title="Step one character">⏯ Step Next</button>
+          <button id="btn-sim-play" class="btn btn-accent" title="Play automatic simulation">▶ Play</button>
+          <button id="btn-sim-pause" class="btn btn-secondary hidden" title="Pause simulation">⏸ Pause</button>
+        </div>
+        <div class="speed-control-group">
+          <label for="select-sim-speed" class="speed-label">Speed:</label>
+          <select id="select-sim-speed" class="form-select select-speed">
+            <option value="1200">Slow (1.2s)</option>
+            <option value="700" selected>Normal (0.7s)</option>
+            <option value="350">Fast (0.35s)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Synchronized Tape Visualizer -->
+      <div class="sim-tape-card">
+        <div class="tape-metrics">
+          <span>Position: <strong id="tape-pos-val">0 / 0</strong></span>
+          <span>Symbol Consumed: <strong id="tape-symbol-val">-</strong></span>
+        </div>
+        <div id="sim-tape-display" class="tape-cells-container">
+          <span class="empty-tape-note">Enter input string and click Step Next or Run All.</span>
+        </div>
+      </div>
+
+      <!-- Live Machine State Badges -->
+      <div class="live-states-card">
+        <div class="live-state-box">
+          <span class="state-box-title">NFA Active Set:</span>
+          <div id="live-nfa-states" class="active-subset-badge">∅</div>
+          <span class="sub-metric" id="live-nfa-count">0 active states</span>
+        </div>
+        <div class="live-state-box">
+          <span class="state-box-title">DFA Current State:</span>
+          <div id="live-dfa-state" class="active-subset-badge">-</div>
+          <span class="sub-metric" id="live-dfa-subset">Subset: -</span>
+        </div>
+      </div>
+
+      <!-- Step Explanation Banner -->
+      <div class="step-explanation-banner" id="step-explanation-box">
+        <span class="banner-title">Step Explanation:</span>
+        <p id="sim-step-explanation" class="banner-text">
+          Ready to simulate. Enter a test string over the alphabet and click Step Next or Run All.
+        </p>
+      </div>
+
+      <!-- Final Verification Banner -->
+      <div id="sim-status-banner" class="status-banner hidden">
+        <div class="results-row">
+          <div id="badge-nfa-result" class="result-badge">NFA: -</div>
+          <div id="badge-dfa-result" class="result-badge">DFA: -</div>
+        </div>
+        <p id="sim-verification-msg" class="verification-msg"></p>
+        <p id="sim-result-details" class="result-details-text"></p>
+        <p class="pedagogical-note">
+          <strong>Equivalence Rationale:</strong> Subset construction mathematically guarantees L(NFA) = L(DFA).
+          Synchronized sample string execution demonstrates this language preservation on finite examples.
+        </p>
+      </div>
+
+      <!-- Synchronized Step Trace Table -->
+      <div class="trace-card">
+        <div class="trace-header">
+          <h3>Execution Step Trace</h3>
+          <span id="trace-row-count" class="stats-badge">0 steps</span>
+        </div>
+        <div class="table-scroll-wrapper trace-table-wrapper">
+          <table class="data-table trace-table" id="trace-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Char</th>
+                <th>NFA Prev</th>
+                <th>NFA Raw Move</th>
+                <th>NFA Active (ε-Cl)</th>
+                <th>DFA Prev</th>
+                <th>DFA Next</th>
+              </tr>
+            </thead>
+            <tbody id="trace-tbody">
+              <tr>
+                <td colspan="7" class="empty-trace-cell">Run or step through a string to inspect synchronized traces.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================================== -->
+  <!-- THEORY & VIVA GUIDE MODAL                      -->
+  <!-- ============================================== -->
+  <div id="theory-modal" class="modal-backdrop hidden">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2>📖 Theory & Viva Examination Guide</h2>
+        <button id="btn-close-theory" class="btn-close-modal" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="theory-item">
+          <h3>1. What is a Non-deterministic Finite Automaton (NFA)?</h3>
+          <p>An NFA is a 5-tuple M = (Q, Σ, δ, q₀, F) where the transition function δ maps (state, symbol or ε) to a <strong>set</strong> of states: δ: Q × (Σ ∪ {ε}) → P(Q). The automaton can transition along multiple paths in parallel.</p>
+        </div>
+        <div class="theory-item">
+          <h3>2. What is a Deterministic Finite Automaton (DFA)?</h3>
+          <p>A DFA is a 5-tuple M = (Q, Σ, δ, q₀, F) where the transition function is total and deterministic: δ: Q × Σ → Q. For every state and symbol, there is <strong>exactly one</strong> unique target state. Epsilon transitions are not permitted.</p>
+        </div>
+        <div class="theory-item">
+          <h3>3. What is an Epsilon (ε) Transition?</h3>
+          <p>An ε-transition allows the automaton to spontaneously change state without consuming any input symbol from the string. It enables modular design and sub-automaton chaining.</p>
+        </div>
+        <div class="theory-item">
+          <h3>4. What is Epsilon Closure (ε-closure)?</h3>
+          <p>For any set of states S, ε-closure(S) is the set containing S plus all states reachable from S by traversing zero or more ε-transitions. Cycles are handled safely using a visited set.</p>
+        </div>
+        <div class="theory-item">
+          <h3>5. How does Subset Construction work?</h3>
+          <p>Subset construction converts an NFA to a DFA where each DFA state corresponds to a subset of NFA states. Start state D₀ = ε-closure({q₀}). For each subset S and symbol a, compute target T = ε-closure(move(S, a)). If T is new, add it to the queue.</p>
+        </div>
+        <div class="theory-item">
+          <h3>6. What makes a DFA state accepting?</h3>
+          <p>A DFA state S is an accepting state if and only if S contains <strong>at least one</strong> accepting state of the original NFA: S ∩ F_NFA ≠ ∅.</p>
+        </div>
+        <div class="theory-item">
+          <h3>7. What is a Dead / Trap State (∅)?</h3>
+          <p>When an NFA move has no valid destinations, it yields the empty set ∅. In a complete DFA, ∅ is materialized as an explicit non-accepting Dead/Trap state with self-loops on every alphabet symbol.</p>
+        </div>
+        <div class="theory-item">
+          <h3>8. Why can an NFA have multiple active states?</h3>
+          <p>Non-determinism conceptually explores multiple branches simultaneously. The active state set at any point represents all states reachable by all valid paths after consuming the input prefix.</p>
+        </div>
+        <div class="theory-item">
+          <h3>9. Why does a DFA have exactly one next state?</h3>
+          <p>Determinism means unambiguous execution: given current state q and input symbol a, δ(q, a) yields a single deterministic target state, making it directly implementable in hardware or software.</p>
+        </div>
+        <div class="theory-item">
+          <h3>10. Why does the converted DFA recognize the exact same language?</h3>
+          <p><strong>Language Equivalence Theorem:</strong> By mathematical induction on string length |w|, δ_DFA(D₀, w) tracks exactly the active subset of states reachable by the NFA on w. Since a DFA state is accepting iff it contains an NFA accepting state, w is accepted by DFA iff w is accepted by NFA.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-modal-close-footer" class="btn btn-secondary" type="button">Close Guide</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
